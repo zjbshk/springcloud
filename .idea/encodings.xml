@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/Serviceconfig01" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/child01" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/childclient01" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/consumer01" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/feignConsumer01" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/hystrixconsumer01" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nativeconfigclient" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/nativeconfigclient02" charset="UTF-8" />
+  </component>
+</project>
