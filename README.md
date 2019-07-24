@@ -743,3 +743,346 @@ public class GetConfig {
 ```
 在这个项目中我们只需要启动配置提供者，和配置消费者即可，因为在配置中我们直接写了配置服务器的`ip`和端口`port`
 ![](https://upload-images.jianshu.io/upload_images/7473008-15c338754150c3c5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+#### 使用`hystrix + Ribbon`实现负载均衡和断路器
+在父工程下创建一个Module，pom.xml如下：
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>spring-cloud-myTest</artifactId>
+        <groupId>top.itreatment</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>hystrixTest</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+            <version>2.1.2.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-hystrix</artifactId>
+            <version>2.1.2.RELEASE</version>
+        </dependency>
+    </dependencies>
+
+</project>
+```
+* 编写配置文件：
+```java
+server:
+  port: 8001
+
+spring:
+  application:
+    name: hystrix-test
+eureka:
+  client:
+    service-url:
+     defaultZone: http://localhost:8761/eureka
+```
+* 创建一个Service类
+```java
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+@Service
+public class HelloService {
+
+    @Autowired
+    RestTemplate restTemplate;
+
+    @HystrixCommand(fallbackMethod = "helloFallback")
+    public String index() {
+        String body = restTemplate.getForEntity("http://SERVICE-PROVIDER/hello", String.class).getBody();
+        return body;
+    }
+
+    public String helloFallback() {
+        return "服务器正在升级，请稍后重试......";
+    }
+}
+```
+* 创建访问控制器
+```java
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import top.itreatment.service.HelloService;
+
+@RestController
+public class HelloController {
+
+    @Autowired
+    HelloService service;
+
+    @GetMapping("/hello")
+    String index() {
+        return service.index();
+    }
+}
+```
+* 创建启动类
+```java
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.circuitbreaker.EnableCircuitBreaker;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.client.RestTemplate;
+
+@SpringBootApplication
+@EnableCircuitBreaker
+public class HystrixApplication {
+
+    @Bean
+    @LoadBalanced
+    RestTemplate template() {
+        return new RestTemplate();
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(HystrixApplication.class, args);
+    }
+}
+```
+`@EnableCircuitBreaker`：开启断路器设置
+
+#### Zuul
+---
+* 为减轻运维人员对于路由规则与服务实例的维护麻烦问题
+* 对千类似签名校验、登录校验在微服务架构中的冗余问题
+
+通过Zuul即可解决，下面创建一个带有Zuul的项目
+首先在父工程下创建一个Module，pom.xml
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>spring-cloud-myTest</artifactId>
+        <groupId>top.itreatment</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>zuulTest</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-zuul</artifactId>
+            <version>RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-eureka-server</artifactId>
+            <version>1.3.4.RELEASE</version>
+        </dependency>
+    </dependencies>
+
+</project>
+```
+* 编写配置文件如下：
+```yml
+server:
+  port: 1025
+
+spring:
+  application:
+    name: api-getway
+
+zuul:
+  routes:
+    api-a:
+      path: /api-a/**
+      serviceId: service-provider
+    api-b:
+      path: /api-b/**
+      serviceId: feign-consumer
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+```
+* 创建启动类：
+```java
+package top.itreatment;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.zuul.EnableZuulProxy;
+
+@SpringBootApplication
+@EnableZuulProxy
+public class ZApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(ZApplication.class, args);
+    }
+}
+```
+* 启动必要的服务，进行测试：
+![](https://upload-images.jianshu.io/upload_images/7473008-f11d4ef7eae5c779.gif?imageMogr2/auto-orient/strip)
+
+* 上面已经做到了路由转发功能，但是并不具备过滤功能
+接下啦，我们进行改进使其具备该功能
+创建一个过滤类：
+```java
+import com.netflix.zuul.ZuulFilter;
+import com.netflix.zuul.context.RequestContext;
+import com.netflix.zuul.exception.ZuulException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.servlet.http.HttpServletRequest;
+
+public class AccessFilter extends ZuulFilter {
+
+    private static Logger log = LoggerFactory.getLogger(AccessFilter.class);
+
+//    过滤类型，代表了过滤的时期，pre表示在路由转发之前进行过滤。
+    @Override
+    public String filterType() {
+        return "pre";
+    }
+
+//    过滤的顺序，如果在一个时期有多个过滤器，
+//    这他们的顺序就是根据该方法返回的值进行排序
+    @Override
+    public int filterOrder() {
+        return 0;
+    }
+
+//    是否启动过滤功能，可以通过该方法进行确定范围
+    @Override
+    public boolean shouldFilter() {
+        return true;
+    }
+
+//    过滤的主要的过滤逻辑
+    @Override
+    public Object run() throws ZuulException {
+        RequestContext ctx = RequestContext.getCurrentContext();
+        
+//        获取请求实例request
+        HttpServletRequest request = ctx.getRequest();
+        log.info("send {} request to{}", request.getMethod(),
+                request.getRequestURL().toString());
+
+//        通过request获取发送的参数
+        Object accessToken = request.getParameter("accessToken");
+
+        if (accessToken == null) {
+            log.warn("access token is empty");
+            ctx.setSendZuulResponse(false);
+            ctx.setResponseBody("this is a test !!!");
+            ctx.setResponseStatusCode(401);
+        } else {
+            log.info("access token ok");
+        }
+        return null;
+    }
+}
+
+```
+
+改动启动类：
+```java
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.zuul.EnableZuulProxy;
+import org.springframework.context.annotation.Bean;
+import top.itreatment.filter.AccessFilter;
+
+@SpringBootApplication
+@EnableZuulProxy
+public class ZApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(ZApplication.class, args);
+    }
+
+    @Bean
+    AccessFilter accessFilter(){
+        return new AccessFilter();
+    }
+}
+```
+如果有非常多的服务，那我们在配置路由转发时就是一个非常大的工程量了，同时命名也会令人头疼，所以Zuul在这方面非常贴切的为我们提供了默认的转发，当带有Zuul功能的客户端连接到注册中心时就会获取服务清单设置转发的规则就是直接通过服务名进行转发。
+举个例子：
+这里我们将配置的路由转发规则注释掉
+```yml
+server:
+  port: 1025
+
+spring:
+  application:
+    name: api-getway
+
+#zuul:
+#  routes:
+#    api-a:
+#      path: /api-a/**
+#      serviceId: service-provider
+#    api-b:
+#      path: /api-b/**
+#      serviceId: feign-consumer
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+```
+然后重启Zuul客户端
+访问地址[http://127.0.0.1:1025/service-provider/hello?accessToken=](http://127.0.0.1:1025/service-provider/hello?accessToken=)依旧可以访问到
+
+如果觉得这样一个`-`横杠，你不太容易接受我们也可以通过向Ioc容器中注入一个Bean即可解决，如下：
+```java
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.zuul.EnableZuulProxy;
+import org.springframework.cloud.netflix.zuul.filters.discovery.PatternServiceRouteMapper;
+import org.springframework.context.annotation.Bean;
+import top.itreatment.filter.AccessFilter;
+
+@SpringBootApplication
+@EnableZuulProxy
+public class ZApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(ZApplication.class, args);
+    }
+
+    @Bean
+    AccessFilter accessFilter(){
+        return new AccessFilter();
+    }
+
+// 下面就是要注入的Bean，通过这一步，就可以将默认的路由转发规则从`service-provider`变成`service/provider`
+    @Bean
+    PatternServiceRouteMapper serviceRouteMapper(){
+        return new PatternServiceRouteMapper("(?<name>^.+?)-(?<action>.+?)","${name}/${action}");
+    }
+}
+```
+`注意：在使用zuul.prefix属性时会引发一个zuul内部路由的一个Bug`
+比如：
+如果设置zuul.prefix=/api ，当我们设置转发规则是：
+```yml
+zuul:
+  routes:
+    api-b:
+      path: /api/a/**
+      serviceId: service-provider
+```
+就会出现无法访问的情况
