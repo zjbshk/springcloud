@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="zuulTest" />
+        <module name="ServiceProviderTest" />
+        <module name="helloserviceapi" />
+        <module name="feignconsumerTest" />
+        <module name="EurekaServerTest" />
+        <module name="hystrixTest" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="EurekaServerTest" options="-parameters" />
+      <module name="ServiceProviderTest" options="-parameters" />
+      <module name="feignconsumerTest" options="-parameters" />
+      <module name="helloserviceapi" options="-parameters" />
+      <module name="hystrixTest" options="-parameters" />
+      <module name="zuulTest" options="-parameters" />
+    </option>
+  </component>
+</project>
